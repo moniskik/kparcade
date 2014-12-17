@@ -1,5 +1,7 @@
 $( document ).ready(function() {
-    $("#test-game-button").click(function(event){
+    $("#space-invaders-game-button").click(function(event){
+        //alert("hello");
+
         // STARFIELD ============================================================================================
         //  Define the starfield class.
         function Starfield() {
@@ -134,24 +136,10 @@ $( document ).ready(function() {
 
             //  The state stack.
             this.stateStack = [];
-            this.stateNameStack = [];
 
             //  Input/output
             this.pressedKeys = {};
             this.gameCanvas =  null;
-        }
-
-        function touchHandler(event) {
-            if (event.targetTouches.length == 1) { //one finger touche
-                var touch = event.targetTouches[0];
-
-                if (event.type == "touchstart") {
-                    //alert("touch " + touch.pageX + ", " + touch.pageY);
-                } else if (event.type == "touchmove") {
-                    alert("move " + touch.pageX + ", " + touch.pageY + " " + this.game);
-                }
-
-            }
         }
 
         //  Initialis the Game with a canvas.
@@ -171,52 +159,14 @@ $( document ).ready(function() {
                 top: gameCanvas.height / 2 - this.config.gameHeight / 2,
                 bottom: gameCanvas.height / 2 + this.config.gameHeight / 2,
             };
-
-            //  Move into the 'welcome' state.
-            this.moveToState(new WelcomeState(), "WelcomeState");
-
-            /*var stateName = this.currentStateName();
-
-            var game = this;
-
-            this.gameCanvas.addEventListener("touchstart", function touchHandler(event) {
-                if (event.targetTouches.length == 1) { //one finger touche
-                    var touch = event.targetTouches[0];
-
-                    if (event.type == "touchstart" && (stateName == "WelcomeState") || (stateName == "GameOverState")) {
-                        game.level = 1;
-                        game.score = 0;
-                        game.lives = 3;
-                        game.moveToState(new LevelIntroState(game.level), "LevelIntroState");
-                        //alert("touch " + touch.pageX + ", " + touch.pageY + " " + this.currentState());
-                    } 
-                    else if (event.type == "touchstart" && stateName == "PlayState") {
-                        game.currentState().fireRocket();
-                    }
-
-                }
-            }, false);
-            this.gameCanvas.addEventListener("touchmove", function touchHandler(event) {
-                if (event.targetTouches.length == 1) { //one finger touche
-                    var touch = event.targetTouches[0];
-
-                    if (event.type == "touchmove") {
-                        alert("move " + touch.pageX + ", " + touch.pageY + " " + stateName);
-                    }
-
-                }
-            }, false);*/
-
-
         };
 
-        Game.prototype.moveToState = function(state, stateName) {
+        Game.prototype.moveToState = function(state) {
          
            //  If we are in a state, leave it.
            if(this.currentState() && this.currentState().leave) {
              this.currentState().leave(game);
              this.stateStack.pop();
-             this.stateNameStack.pop();
            }
            
            //  If there's an enter function for the new state, call it.
@@ -226,13 +176,15 @@ $( document ).ready(function() {
          
            //  Set the current state.
            this.stateStack.pop();
-           this.stateNameStack.pop();
            this.stateStack.push(state);
-           this.stateNameStack.push(stateName);
          };
 
         //  Start the Game.
         Game.prototype.start = function() {
+
+            //  Move into the 'welcome' state.
+            this.moveToState(new WelcomeState());
+
             //  Set the game variables.
             this.lives = 3;
             this.config.debugMode = /debug=true/.test(window.location.href);
@@ -240,16 +192,12 @@ $( document ).ready(function() {
             //  Start the game loop.
             var game = this;
             this.intervalId = setInterval(function () { GameLoop(game);}, 1000 / this.config.fps);
+
         };
 
         //  Returns the current state.
         Game.prototype.currentState = function() {
             return this.stateStack.length > 0 ? this.stateStack[this.stateStack.length - 1] : null;
-        };
-
-        //  Returns the current state.
-        Game.prototype.currentStateName = function() {
-            return this.stateNameStack.length > 0 ? this.stateNameStack[this.stateNameStack.length - 1] : null;
         };
 
         //  The main loop.
@@ -274,7 +222,7 @@ $( document ).ready(function() {
             }
         }
 
-        Game.prototype.pushState = function(state, stateName) {
+        Game.prototype.pushState = function(state) {
 
             //  If there's an enter function for the new state, call it.
             if(state.enter) {
@@ -282,7 +230,6 @@ $( document ).ready(function() {
             }
             //  Set the current state.
             this.stateStack.push(state);
-            this.stateNameStack.push(stateName);
         };
 
         Game.prototype.popState = function() {
@@ -295,7 +242,6 @@ $( document ).ready(function() {
 
                 //  Set the current state.
                 this.stateStack.pop();
-                this.stateNameStack.pop();
             }
         };
 
@@ -346,6 +292,16 @@ $( document ).ready(function() {
             ctx.fillText("Press 'Space' to start.", game.width / 2, game.height/2); 
         };
 
+        WelcomeState.prototype.keyDown = function(game, keyCode) {
+            if(keyCode == 32) { //space
+                //  Space starts the game.
+                game.level = 1;
+                game.score = 0;
+                game.lives = 3;
+                game.moveToState(new LevelIntroState(game.level));
+            }
+        };
+
         function GameOverState() {
 
         }
@@ -368,6 +324,16 @@ $( document ).ready(function() {
             ctx.fillText("You scored " + game.score + " and got to level " + game.level, game.width / 2, game.height/2);
             ctx.font="16px Arial";
             ctx.fillText("Press 'Space' to play again.", game.width / 2, game.height/2 + 40);   
+        };
+
+        GameOverState.prototype.keyDown = function(game, keyCode) {
+            if(keyCode == 32) { //space
+                //  Space restarts the game.
+                game.lives = 3;
+                game.score = 0;
+                game.level = 1;
+                game.moveToState(new LevelIntroState(1));
+            }
         };
 
         //  Create a PlayState with the game config and the level you are on.
@@ -541,6 +507,7 @@ $( document ).ready(function() {
                 }
                 if(bang) {
                     this.invaders.splice(i--, 1);
+                    game.sounds.playSound('bang');
                 }
             }
 
@@ -575,6 +542,7 @@ $( document ).ready(function() {
                         bomb.y >= (this.ship.y - this.ship.height/2) && bomb.y <= (this.ship.y + this.ship.height/2)) {
                     this.bombs.splice(i--, 1);
                     game.lives--;
+                    game.sounds.playSound('explosion');
                 }
                         
             }
@@ -588,19 +556,20 @@ $( document ).ready(function() {
                     (invader.y - invader.height/2) < (this.ship.y + this.ship.height/2)) {
                     //  Dead by collision!
                     game.lives = 0;
+                    game.sounds.playSound('explosion');
                 }
             }
 
             //  Check for failure
             if(game.lives <= 0) {
-                game.moveToState(new GameOverState(), "GameOverState");
+                game.moveToState(new GameOverState());
             }
 
             //  Check for victory
             if(this.invaders.length === 0) {
                 game.score += this.level * 50;
                 game.level += 1;
-                game.moveToState(new LevelIntroState(game.level), "LevelIntroState");
+                game.moveToState(new LevelIntroState(game.level));
             }
         };
 
@@ -657,9 +626,14 @@ $( document ).ready(function() {
         };
 
         PlayState.prototype.keyDown = function(game, keyCode) {
+
+            if(keyCode == 32) {
+                //  Fire!
+                this.fireRocket();
+            }
             if(keyCode == 80) {
                 //  Push the pause state.
-                game.pushState(new PauseState(), "PauseState");
+                game.pushState(new PauseState());
             }
         };
 
@@ -675,6 +649,9 @@ $( document ).ready(function() {
                 //  Add a rocket.
                 this.rockets.push(new Rocket(this.ship.x, this.ship.y - 12, this.config.rocketVelocity));
                 this.lastRocketTime = (new Date()).valueOf();
+
+                //  Play the 'shoot' sound.
+                game.sounds.playSound('shoot');
             }
         };
         
@@ -730,7 +707,7 @@ $( document ).ready(function() {
             }
             if(this.countdown <= 0) {
                 //  Move to the next level, popping this state.
-                game.moveToState(new PlayState(game.config, this.level), "PlayState");
+                game.moveToState(new PlayState(game.config, this.level));
             }
 
         };
@@ -832,43 +809,6 @@ $( document ).ready(function() {
          
         //  Initialise it with the game canvas.
         game.initialise(canvas);
-
-        game.gameCanvas.addEventListener("touchstart", function touchHandler(event) {
-            if (event.targetTouches.length == 1) { //one finger touche
-                var touch = event.targetTouches[0];
-
-                if (event.type == "touchstart" && (game.currentStateName() == "WelcomeState") || (game.currentStateName() == "GameOverState")) {
-                    game.level = 1;
-                    game.score = 0;
-                    game.lives = 3;
-                    game.moveToState(new LevelIntroState(game.level), "LevelIntroState");
-                    //alert("touch " + touch.pageX + ", " + touch.pageY + " " + this.currentState());
-                } 
-                else if (event.type == "touchstart" && game.currentStateName() == "PlayState") {
-                    game.currentState().fireRocket();
-                }
-
-            }
-        }, false);
-        game.gameCanvas.addEventListener("touchmove", function touchHandler(event) {
-            if (event.targetTouches.length == 1) { //one finger touche
-                var touch = event.targetTouches[0];
-
-                if (event.type == "touchmove" && game.currentStateName() == "PlayState") {
-                    /*if(game.pressedKeys[37]) {
-                        this.ship.x -= this.shipSpeed * dt;
-                    }
-                    if(game.pressedKeys[39]) {
-                        this.ship.x += this.shipSpeed * dt;
-                    }
-                    if(game.pressedKeys[32]) {
-                        this.fireRocket();
-                    }*/
-                    game.currentState().ship.x = touch.pageX;
-                }
-
-            }
-        }, false);
          
         //  Start the game.
         game.start();

@@ -1,29 +1,31 @@
 $( document ).ready(function() {
-    $("#pong-game-button").click(function(event){
+    $("#arkanoid-game-button").click(function(event){
         // RequestAnimFrame: a browser API for getting smooth animations
         window.requestAnimFrame = (function(){
             return  window.requestAnimationFrame       || 
-            window.webkitRequestAnimationFrame || 
-            window.mozRequestAnimationFrame    || 
-            window.oRequestAnimationFrame      || 
-            window.msRequestAnimationFrame     ||  
-            function( callback ){
-                return window.setTimeout(callback, 1000 / 60);
-            };
+                window.webkitRequestAnimationFrame || 
+                window.mozRequestAnimationFrame    || 
+                window.oRequestAnimationFrame      || 
+                window.msRequestAnimationFrame     ||  
+                function( callback ){
+                    return window.setTimeout(callback, 1000 / 60);
+                };
         })();
 
         window.cancelRequestAnimFrame = ( function() {
             return window.cancelAnimationFrame          ||
-            window.webkitCancelRequestAnimationFrame    ||
-            window.mozCancelRequestAnimationFrame       ||
-            window.oCancelRequestAnimationFrame     ||
-            window.msCancelRequestAnimationFrame        ||
-            clearTimeout
+                window.webkitCancelRequestAnimationFrame    ||
+                window.mozCancelRequestAnimationFrame       ||
+                window.oCancelRequestAnimationFrame     ||
+                window.msCancelRequestAnimationFrame        ||
+                clearTimeout
         } )();
 
         // Initialize canvas and required variables
         var canvas = document.getElementById("canvas");
         var ctx = canvas.getContext("2d"); // Create canvas context
+        var W = window.innerWidth; // Window's width
+        var H = window.innerHeight; // Window's height
         var particles = []; // Array containing particles
         var ball = {}; // Ball object
         var paddles = [2]; // Array containing two paddles
@@ -40,54 +42,21 @@ $( document ).ready(function() {
         var init; // variable to initialize animation
         var paddleHit;
 
-        canvas.addEventListener("touchstart", touchHandler, false);
-        canvas.addEventListener("touchmove", touchHandler, false);
-        canvas.addEventListener("touchend", touchHandler, false);
-
         // Add mousemove and mousedown events to the canvas
-        //canvas.addEventListener("mousemove", trackPosition, true);
+        canvas.addEventListener("mousemove", trackPosition, true);
         canvas.addEventListener("mousedown", btnClick, true);
 
         // Initialise the collision sound
         collision = document.getElementById("collide");
 
         // Set the canvas's height and width to full screen
-        canvas.width = window.innerWidth;
-        canvas.height = canvas.height;
-
-        var W = canvas.width; // Window's width
-        var H = canvas.height/2; // Window's height
-
-        var titlebar_height = $( "div.app-title" ).height();
-        var joystick_x = W/2;
-        var joystick_y = 3*(H/2);
-        
-
-        function touchHandler(event) {
-            if (event.targetTouches.length == 1) { //one finger touch
-                var touch = event.targetTouches[0];
-
-                /*if (event.type == "touchmove") {s
-                    mouse.x = touch.pageX;
-                    mouse.y = touch.pageY;
-                } else*/
-                if (event.type == "touchmove" && touch.pageX > (joystick.x - joystick.r) && touch.pageX < (joystick.x + joystick.r) && touch.pageY > (joystick.y + titlebar_height - joystick.r) && touch.pageY < (joystick.y + titlebar_height + joystick.r)){
-                    if ((touch.pageX - joystick.r) > (joystick_base.x - joystick_base.r) && (touch.pageX + joystick.r) < (joystick_base.x + joystick_base.r) && (touch.pageY - joystick.r) > (joystick_base.y + titlebar_height - joystick_base.r) && (touch.pageY + joystick.r) < (joystick_base.y + titlebar_height + joystick_base.r)){
-                        joystick.x = touch.pageX;
-                        joystick.y = touch.pageY - titlebar_height;
-                    }                    
-                    //alert("touch " + touch.pageX + ", " + touch.pageY + " joystick " + joystick.x + ", " + joystick.y + ", " + joystick.r + " bar height " + titlebar_height);
-                }
-            }
-        }
+        canvas.width = W;
+        canvas.height = H;
 
         // Function to paint canvas
         function paintCanvas() {
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, W, H);
-
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, H, W, H*2);
         }
 
         // Function for creating paddles
@@ -95,7 +64,6 @@ $( document ).ready(function() {
             // Height and width
             this.h = 5;
             this.w = 150;
-            this.vx = 0;
             
             // Paddle's position
             this.x = W/2 - this.w/2;
@@ -115,38 +83,6 @@ $( document ).ready(function() {
             c: "white",
             vx: 4,
             vy: 8,
-            
-            // Function for drawing ball on canvas
-            draw: function() {
-                ctx.beginPath();
-                ctx.fillStyle = this.c;
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI*2, false);
-                ctx.fill();
-            }
-        };
-
-        // Joy Stick object
-        joystick = {
-            x: joystick_x,
-            y: joystick_y, 
-            r: 20,
-            c: "red",
-            
-            // Function for drawing ball on canvas
-            draw: function() {
-                ctx.beginPath();
-                ctx.fillStyle = this.c;
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI*2, false);
-                ctx.fill();
-            }
-        };
-
-        // Joy Stick Base object
-        joystick_base = {
-            x: joystick_x,
-            y: joystick_y, 
-            r: 60,
-            c: "blue",
             
             // Function for drawing ball on canvas
             draw: function() {
@@ -220,8 +156,6 @@ $( document ).ready(function() {
             }
             
             ball.draw();
-            joystick_base.draw();
-            joystick.draw();
             update();
         }
 
@@ -236,51 +170,30 @@ $( document ).ready(function() {
         }
 
         // Track the position of mouse cursor
-        /*function trackPosition(e) {
+        function trackPosition(e) {
             mouse.x = e.pageX;
             mouse.y = e.pageY;
-        }*/
+        }
 
         // Function to update positions, score and everything.
         // Basically, the main game logic is defined here
         function update() {
-
+            
             // Update scores
             updateScore(); 
             
             // Move the paddles on mouse move
-            /*if(mouse.x && mouse.y) {
+            if(mouse.x && mouse.y) {
                 for(var i = 1; i < paddles.length; i++) {
                     p = paddles[i];
                     p.x = mouse.x - p.w/2;
                 }       
-            }*/
-
-            if(joystick.x > joystick_x) {
-                for(var i = 1; i < paddles.length; i++) {
-                    p = paddles[i];
-                    p.vx = 4;
-                    //p.x = mouse.x - p.w/2;
-                }       
-            } else if (joystick.x < joystick_x){
-                for(var i = 1; i < paddles.length; i++) {
-                    p = paddles[i];
-                    p.vx = -4;
-                    //p.x = mouse.x - p.w/2;
-                }  
-            }
-
-            // Move paddles
-            for(var i = 1; i < paddles.length; i++) {
-                p = paddles[i];
-                p.x += p.vx;
-                //p.x = mouse.x - p.w/2;
             }
             
             // Move the ball
             ball.x += ball.vx;
             ball.y += ball.vy;
-
+            
             // Collision with paddles
             p1 = paddles[1];
             p2 = paddles[2];
@@ -325,6 +238,8 @@ $( document ).ready(function() {
                     ball.x = ball.r;
                 }
             }
+            
+            
             
             // If flag is set, push the particles
             if(flag == 1) { 
@@ -451,10 +366,10 @@ $( document ).ready(function() {
 
         // On button click (Restart and start)
         function btnClick(e) {
-
+            
             // Variables for storing mouse position on click
             var mx = e.pageX,
-            my = e.pageY;
+                    my = e.pageY;
             
             // Click start button
             if(mx >= startBtn.x && mx <= startBtn.x + startBtn.w) {
@@ -481,6 +396,5 @@ $( document ).ready(function() {
 
         // Show the start screen
         startScreen();
-
-    });
+        });
 });
