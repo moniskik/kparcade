@@ -24,19 +24,13 @@ $( document ).ready(function() {
         // Initialize canvas and required variables
         var canvas = document.getElementById("canvas");
         var ctx = canvas.getContext("2d"); // Create canvas context
-        var particles = []; // Array containing particles
         var ball = {}; // Ball object
         var paddles = [2]; // Array containing two paddles
-        var mouse = {}; // Mouse object to store it's current position
         var points = 0; // Varialbe to store points
         var fps = 60; // Max FPS (frames per second)
-        var particlesCount = 20; // Number of sparks when ball strikes the paddle
-        var flag = 0; // Flag variable which is changed on collision
-        var particlePos = {}; // Object to contain the position of collision 
-        var multipler = 1; // Varialbe to control the direction of sparks
         var startBtn = {}; // Start button object
         var restartBtn = {}; // Restart button object
-        var over = 0; // flag varialbe, cahnged when the game is over
+        var over = 0; // flag varialbe, changed when the game is over
         var init; // variable to initialize animation
         var paddleHit;
 
@@ -44,39 +38,85 @@ $( document ).ready(function() {
         canvas.addEventListener("touchmove", touchHandler, false);
         canvas.addEventListener("touchend", touchHandler, false);
 
-        // Add mousemove and mousedown events to the canvas
-        //canvas.addEventListener("mousemove", trackPosition, true);
-        canvas.addEventListener("mousedown", btnClick, true);
+        $(canvas).on('vmousedown', function(e){
+            // Variables for storing mouse position on click
+            var mx = e.pageX,
+            my = e.pageY;
+            
+            // Click start button
+            if(mx >= startBtn.x && mx <= startBtn.x + startBtn.w && my >= startBtn.y + titlebar_height && my <= startBtn.y + titlebar_height + startBtn.h) {
+                animloop();
+                
+                // Delete the start button after clicking it
+                startBtn = {};
+            }
+            
+            // If the game is over, and the restart button is clicked
+            if(over == 1) {
+                if(mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w && my >= restartBtn.y + titlebar_height && my <= restartBtn.y + titlebar_height + restartBtn.h) {
+                    ball.x = W/2;
+                    ball.y = H/2;
+                    points = 0;
+                    ball.vx = 0;
+                    ball.vy = 8;
+                    direction = "";
+
+                    for(var i = 1; i < paddles.length; i++) {
+                        p = paddles[i];
+                        p.x = W/2 - p.w/2;
+                        p.y = (p.pos == "top") ? 0 : H - p.h;
+                    }
+
+                    animloop();
+                    
+                    over = 0;
+                }
+            }
+        });
+
+        /*$(canvas).on('taphold', function(e){
+            //alert('X: ' + e.pageX + ' Y: ' + e.pageY ); 
+        });*/
 
         // Initialise the collision sound
         collision = document.getElementById("collide");
 
-        // Set the canvas's height and width to full screen
-        canvas.width = window.innerWidth;
-        canvas.height = canvas.height;
+        //var ratio = window.devicePixelRatio || 1;
+        //var w = screen.width * ratio;
+        //var h = screen.height * ratio;
+
+        var titlebar_height = $( "div.app-title" ).height();
+
+        // Set the canvas's height and width
+        canvas.width = screen.width;
+        canvas.height = screen.height - titlebar_height;
 
         var W = canvas.width; // Window's width
         var H = canvas.height/2; // Window's height
 
-        var titlebar_height = $( "div.app-title" ).height();
-        var joystick_x = W/2;
-        var joystick_y = 3*(H/2);
+        var direction = "";
         
 
         function touchHandler(event) {
-            if (event.targetTouches.length == 1) { //one finger touch
+            if (event.targetTouches.length >= 1) { //one finger touch
                 var touch = event.targetTouches[0];
-
-                /*if (event.type == "touchmove") {s
-                    mouse.x = touch.pageX;
-                    mouse.y = touch.pageY;
-                } else*/
-                if (event.type == "touchmove" && touch.pageX > (joystick.x - joystick.r) && touch.pageX < (joystick.x + joystick.r) && touch.pageY > (joystick.y + titlebar_height - joystick.r) && touch.pageY < (joystick.y + titlebar_height + joystick.r)){
-                    if ((touch.pageX - joystick.r) > (joystick_base.x - joystick_base.r) && (touch.pageX + joystick.r) < (joystick_base.x + joystick_base.r) && (touch.pageY - joystick.r) > (joystick_base.y + titlebar_height - joystick_base.r) && (touch.pageY + joystick.r) < (joystick_base.y + titlebar_height + joystick_base.r)){
-                        joystick.x = touch.pageX;
-                        joystick.y = touch.pageY - titlebar_height;
-                    }                    
-                    //alert("touch " + touch.pageX + ", " + touch.pageY + " joystick " + joystick.x + ", " + joystick.y + ", " + joystick.r + " bar height " + titlebar_height);
+                if (event.type == "touchstart") {
+                    if(touch.pageX > dx && touch.pageX < (dx + down_arrow.width) && touch.pageY > (dy + titlebar_height) && touch.pageY < (dy + titlebar_height + down_arrow.height)){
+                        //alert("touch " + touch.pageX + ", " + touch.pageY + " down_arrow " + down_arrow.x + ", " + down_arrow.y + ", " + down_arrow.r + " bar height " + titlebar_height);
+                        direction = "down";
+                    }
+                    else if(touch.pageX > ux && touch.pageX < (ux + up_arrow.width) && touch.pageY > (uy + titlebar_height) && touch.pageY < (uy + titlebar_height + up_arrow.height)){
+                        //alert("touch " + touch.pageX + ", " + touch.pageY + " up_arrow " + up_arrow.x + ", " + up_arrow.y + ", " + up_arrow.r + " bar height " + titlebar_height);
+                        direction = "up";
+                    }
+                    else if (touch.pageX > lx && touch.pageX < (lx + left_arrow.width) && touch.pageY > (ly + titlebar_height) && touch.pageY < (ly + titlebar_height + left_arrow.height)){
+                        //alert("touch " + touch.pageX + ", " + touch.pageY + " left_arrow " + left_arrow.x + ", " + left_arrow.y + ", " + left_arrow.r + " bar height " + titlebar_height);
+                        direction = "left";
+                    }
+                    else if (touch.pageX > rx && touch.pageX < (rx + right_arrow.width) && touch.pageY > (ry + titlebar_height) && touch.pageY < (ry + titlebar_height + right_arrow.height)){
+                        //alert("touch " + touch.pageX + ", " + touch.pageY + " right_arrow " + right_arrow.x + ", " + right_arrow.y + ", " + right_arrow.r + " bar height " + titlebar_height);
+                        direction = "right";
+                    }
                 }
             }
         }
@@ -86,7 +126,7 @@ $( document ).ready(function() {
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, W, H);
 
-            ctx.fillStyle = "white";
+            ctx.fillStyle = "blue";
             ctx.fillRect(0, H, W, H*2);
         }
 
@@ -96,11 +136,11 @@ $( document ).ready(function() {
             this.h = 5;
             this.w = 150;
             this.vx = 0;
+            this.pos = pos;
             
             // Paddle's position
             this.x = W/2 - this.w/2;
             this.y = (pos == "top") ? 0 : H - this.h;
-            
         }
 
         // Push two new paddles into the paddles[] array
@@ -109,11 +149,11 @@ $( document ).ready(function() {
 
         // Ball object
         ball = {
-            x: 50,
-            y: 50, 
+            x: W/2,
+            y: H/2, 
             r: 5,
             c: "white",
-            vx: 4,
+            vx: 0,
             vy: 8,
             
             // Function for drawing ball on canvas
@@ -125,45 +165,29 @@ $( document ).ready(function() {
             }
         };
 
-        // Joy Stick object
-        joystick = {
-            x: joystick_x,
-            y: joystick_y, 
-            r: 20,
-            c: "red",
-            
-            // Function for drawing ball on canvas
-            draw: function() {
-                ctx.beginPath();
-                ctx.fillStyle = this.c;
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI*2, false);
-                ctx.fill();
-            }
-        };
-
-        // Joy Stick Base object
-        joystick_base = {
-            x: joystick_x,
-            y: joystick_y, 
-            r: 60,
-            c: "blue",
-            
-            // Function for drawing ball on canvas
-            draw: function() {
-                ctx.beginPath();
-                ctx.fillStyle = this.c;
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI*2, false);
-                ctx.fill();
-            }
-        };
-
+        var up_arrow = new Image();
+        up_arrow.src = "../img/up_green.png";
+        var ux = W/2 - up_arrow.width/2;
+        var uy = 6*(H/5);
+        var down_arrow = new Image();
+        down_arrow.src = "../img/down_green.png";
+        var dx = W/2 - down_arrow.width/2;
+        var dy = 8*(H/5);
+        var left_arrow = new Image();
+        left_arrow.src = "../img/left_green.png";
+        var lx = W/4 - left_arrow.width/2;
+        var ly = 7*(H/5);
+        var right_arrow = new Image();
+        right_arrow.src = "../img/right_green.png";
+        var rx = 3*W/4 - right_arrow.width/2;
+        var ry = 7*(H/5);
 
         // Start Button object
         startBtn = {
             w: 100,
             h: 50,
             x: W/2 - 50,
-            y: H/2 - 25,
+            y: H/2 + 25,
             
             draw: function() {
                 ctx.strokeStyle = "white";
@@ -174,7 +198,7 @@ $( document ).ready(function() {
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillStlye = "white";
-                ctx.fillText("Start", W/2, H/2 );
+                ctx.fillText("Start", W/2, H/2 + 50);
             }
         };
 
@@ -183,7 +207,7 @@ $( document ).ready(function() {
             w: 100,
             h: 50,
             x: W/2 - 50,
-            y: H/2 - 50,
+            y: H/2 + 50,
             
             draw: function() {
                 ctx.strokeStyle = "white";
@@ -194,24 +218,17 @@ $( document ).ready(function() {
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillStlye = "white";
-                ctx.fillText("Restart", W/2, H/2 - 25 );
+                ctx.fillText("Restart", W/2, H/2 + 75 );
             }
         };
-
-        // Function for creating particles object
-        function createParticles(x, y, m) {
-            this.x = x || 0;
-            this.y = y || 0;
-            
-            this.radius = 1.2;
-            
-            this.vx = -1.5 + Math.random()*3;
-            this.vy = m * Math.random()*1.5;
-        }
 
         // Draw everything on canvas
         function draw() {
             paintCanvas();
+            ctx.drawImage(up_arrow, ux, uy);
+            ctx.drawImage(down_arrow, dx, dy);
+            ctx.drawImage(right_arrow,rx, ry);
+            ctx.drawImage(left_arrow, lx, ly);
             for(var i = 0; i < paddles.length; i++) {
                 p = paddles[i];
                 
@@ -220,14 +237,12 @@ $( document ).ready(function() {
             }
             
             ball.draw();
-            joystick_base.draw();
-            joystick.draw();
             update();
         }
 
         // Function to increase speed after every 5 points
         function increaseSpd() {
-            if(points % 4 == 0) {
+            if(points % 9 == 0) {
                 if(Math.abs(ball.vx) < 15) {
                     ball.vx += (ball.vx < 0) ? -1 : 1;
                     ball.vy += (ball.vy < 0) ? -2 : 2;
@@ -235,46 +250,36 @@ $( document ).ready(function() {
             }
         }
 
-        // Track the position of mouse cursor
-        /*function trackPosition(e) {
-            mouse.x = e.pageX;
-            mouse.y = e.pageY;
-        }*/
-
         // Function to update positions, score and everything.
         // Basically, the main game logic is defined here
         function update() {
 
             // Update scores
             updateScore(); 
-            
-            // Move the paddles on mouse move
-            /*if(mouse.x && mouse.y) {
-                for(var i = 1; i < paddles.length; i++) {
-                    p = paddles[i];
-                    p.x = mouse.x - p.w/2;
-                }       
-            }*/
 
-            if(joystick.x > joystick_x) {
-                for(var i = 1; i < paddles.length; i++) {
-                    p = paddles[i];
-                    p.vx = 4;
-                    //p.x = mouse.x - p.w/2;
-                }       
-            } else if (joystick.x < joystick_x){
-                for(var i = 1; i < paddles.length; i++) {
-                    p = paddles[i];
-                    p.vx = -4;
-                    //p.x = mouse.x - p.w/2;
-                }  
+            for(var i = 1; i < paddles.length; i++) {
+                p = paddles[i];
+                if (direction == "left"){
+                    p.vx = -6;
+                }
+                else if (direction == "right"){
+                    p.vx = 6;
+                } 
+                else {
+                    p.vx = 0;
+                }
             }
 
             // Move paddles
             for(var i = 1; i < paddles.length; i++) {
                 p = paddles[i];
+                if (p.x <= 0 && p.vx < 0){
+                    p.vx = 0;
+                }
+                else if ((p.x + p.w) >= W && p.vx > 0){
+                    p.vx = 0;
+                }
                 p.x += p.vx;
-                //p.x = mouse.x - p.w/2;
             }
             
             // Move the ball
@@ -288,10 +293,11 @@ $( document ).ready(function() {
             // If the ball strikes with paddles,
             // invert the y-velocity vector of ball,
             // increment the points, play the collision sound,
-            // save collision's position so that sparks can be
-            // emitted from that position, set the flag variable,
-            // and change the multiplier
+            // save collision's position
             if(collides(ball, p1)) {
+                if (ball.vx == 0){
+                    ball.vx = 4;
+                }
                 collideAction(ball, p1);
             }
             
@@ -325,19 +331,6 @@ $( document ).ready(function() {
                     ball.x = ball.r;
                 }
             }
-            
-            // If flag is set, push the particles
-            if(flag == 1) { 
-                for(var k = 0; k < particlesCount; k++) {
-                    particles.push(new createParticles(particlePos.x, particlePos.y, multiplier));
-                }
-            }   
-            
-            // Emit particles/sparks
-            emitParticles();
-            
-            // reset flag
-            flag = 0;
         }
 
         //Function to check collision between ball and one of
@@ -364,14 +357,10 @@ $( document ).ready(function() {
             
             if(paddleHit == 1) {
                 ball.y = p.y - p.h;
-                particlePos.y = ball.y + ball.r;
-                multiplier = -1;    
             }
             
             else if(paddleHit == 2) {
                 ball.y = p.h + ball.r;
-                particlePos.y = ball.y - ball.r;
-                multiplier = 1; 
             }
             
             points++;
@@ -384,30 +373,6 @@ $( document ).ready(function() {
                 collision.currentTime = 0;
                 collision.play();
             }
-            
-            particlePos.x = ball.x;
-            flag = 1;
-        }
-
-        // Function for emitting particles
-        function emitParticles() { 
-            for(var j = 0; j < particles.length; j++) {
-                par = particles[j];
-                
-                ctx.beginPath(); 
-                ctx.fillStyle = "white";
-                if (par.radius > 0) {
-                    ctx.arc(par.x, par.y, par.radius, 0, Math.PI*2, false);
-                }
-                ctx.fill();  
-                
-                par.x += par.vx; 
-                par.y += par.vy; 
-                
-                // Reduce radius so that the particles die after a few seconds
-                par.radius = Math.max(par.radius - 0.05, 0.0); 
-                
-            } 
         }
 
         // Function for updating score
@@ -447,36 +412,6 @@ $( document ).ready(function() {
         function startScreen() {
             draw();
             startBtn.draw();
-        }
-
-        // On button click (Restart and start)
-        function btnClick(e) {
-
-            // Variables for storing mouse position on click
-            var mx = e.pageX,
-            my = e.pageY;
-            
-            // Click start button
-            if(mx >= startBtn.x && mx <= startBtn.x + startBtn.w) {
-                animloop();
-                
-                // Delete the start button after clicking it
-                startBtn = {};
-            }
-            
-            // If the game is over, and the restart button is clicked
-            if(over == 1) {
-                if(mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w) {
-                    ball.x = 20;
-                    ball.y = 20;
-                    points = 0;
-                    ball.vx = 4;
-                    ball.vy = 8;
-                    animloop();
-                    
-                    over = 0;
-                }
-            }
         }
 
         // Show the start screen

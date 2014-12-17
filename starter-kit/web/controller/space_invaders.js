@@ -1,14 +1,12 @@
 $( document ).ready(function() {
     $("#space-invaders-game-button").click(function(event){
-        //alert("hello");
-
         // STARFIELD ============================================================================================
         //  Define the starfield class.
         function Starfield() {
             this.fps = 30;
             this.canvas = null;
             this.width = 0;
-            this.width = 0;
+            this.height = 0;
             this.minVelocity = 15;
             this.maxVelocity = 30;
             this.stars = 100;
@@ -21,8 +19,8 @@ $( document ).ready(function() {
 
             //  Store the div.
             this.containerDiv = div;
-            self.width = window.innerWidth;
-            self.height = window.innerHeight;
+            self.width = W;
+            self.height = H;
 
             window.onresize = function(event) {
                 self.width = window.innerWidth;
@@ -36,8 +34,8 @@ $( document ).ready(function() {
             var canvas = document.createElement('canvas');
             div.appendChild(canvas);
             this.canvas = canvas;
-            this.canvas.width = this.width;
-            this.canvas.height = this.height;
+            this.canvas.width = W;
+            this.canvas.height = H;
         };
 
         Starfield.prototype.start = function() {
@@ -114,8 +112,8 @@ $( document ).ready(function() {
                 invaderDropDistance: 20,
                 rocketVelocity: 120,
                 rocketMaxFireRate: 2,
-                gameWidth: 400,
-                gameHeight: 300,
+                gameWidth: W,
+                gameHeight: H,
                 fps: 50,
                 debugMode: false,
                 invaderRanks: 5,
@@ -133,13 +131,36 @@ $( document ).ready(function() {
             this.intervalId = 0;
             this.score = 0;
             this.level = 1;
+            this.direction = "";
 
             //  The state stack.
             this.stateStack = [];
+            this.stateNameStack = [];
 
             //  Input/output
             this.pressedKeys = {};
             this.gameCanvas =  null;
+
+            this.up_arrow = new Image();
+            this.up_arrow.src = "../img/up_green.png";
+            this.ux = W/2 - this.up_arrow.width/2;
+            this.uy = 6*(H/5);
+            this.down_arrow = new Image();
+            this.down_arrow.src = "../img/down_green.png";
+            this.dx = W/2 - this.down_arrow.width/2;
+            this.dy = 8*(H/5);
+            this.left_arrow = new Image();
+            this.left_arrow.src = "../img/left_green.png";
+            this.lx = W/4 - this.left_arrow.width/2;
+            this.ly = 7*(H/5);
+            this.right_arrow = new Image();
+            this.right_arrow.src = "../img/right_green.png";
+            this.rx = 3*W/4 - this.right_arrow.width/2;
+            this.ry = 7*(H/5);
+            this.fire_button = new Image();
+            this.fire_button.src = "../img/fire_red.png";
+            this.fx = W/2 - this.fire_button.width/2;
+            this.fy = 7*(H/5);
         }
 
         //  Initialis the Game with a canvas.
@@ -149,24 +170,37 @@ $( document ).ready(function() {
             this.gameCanvas = gameCanvas;
 
             //  Set the game width and height.
-            this.width = gameCanvas.width;
-            this.height = gameCanvas.height;
+            this.width = W;
+            this.height = H;
 
             //  Set the state game bounds.
             this.gameBounds = {
-                left: gameCanvas.width / 2 - this.config.gameWidth / 2,
-                right: gameCanvas.width / 2 + this.config.gameWidth / 2,
-                top: gameCanvas.height / 2 - this.config.gameHeight / 2,
-                bottom: gameCanvas.height / 2 + this.config.gameHeight / 2,
+                left: this.config.gameWidth/ 2 - this.config.gameWidth / 2,
+                right: this.config.gameWidth / 2 + this.config.gameWidth / 2,
+                top: this.config.gameHeight / 2 - this.config.gameHeight / 2,
+                bottom: this.config.gameHeight / 2 + this.config.gameHeight / 2,
             };
+
+            //  Move into the 'welcome' state.
+            this.moveToState(new WelcomeState(), "WelcomeState");
+
         };
 
-        Game.prototype.moveToState = function(state) {
+        // Function for drawing arrow key on canvas
+        Game.prototype.drawButton = function(ctx, arrow) {
+            ctx.beginPath();
+            ctx.fillStyle = arrow.c;
+            ctx.arc(arrow.x, arrow.y, arrow.r, 0, Math.PI*2, false);
+            ctx.fill();
+        }
+
+        Game.prototype.moveToState = function(state, stateName) {
          
            //  If we are in a state, leave it.
            if(this.currentState() && this.currentState().leave) {
              this.currentState().leave(game);
              this.stateStack.pop();
+             this.stateNameStack.pop();
            }
            
            //  If there's an enter function for the new state, call it.
@@ -176,15 +210,13 @@ $( document ).ready(function() {
          
            //  Set the current state.
            this.stateStack.pop();
+           this.stateNameStack.pop();
            this.stateStack.push(state);
+           this.stateNameStack.push(stateName);
          };
 
         //  Start the Game.
         Game.prototype.start = function() {
-
-            //  Move into the 'welcome' state.
-            this.moveToState(new WelcomeState());
-
             //  Set the game variables.
             this.lives = 3;
             this.config.debugMode = /debug=true/.test(window.location.href);
@@ -192,12 +224,16 @@ $( document ).ready(function() {
             //  Start the game loop.
             var game = this;
             this.intervalId = setInterval(function () { GameLoop(game);}, 1000 / this.config.fps);
-
         };
 
         //  Returns the current state.
         Game.prototype.currentState = function() {
             return this.stateStack.length > 0 ? this.stateStack[this.stateStack.length - 1] : null;
+        };
+
+        //  Returns the current state.
+        Game.prototype.currentStateName = function() {
+            return this.stateNameStack.length > 0 ? this.stateNameStack[this.stateNameStack.length - 1] : null;
         };
 
         //  The main loop.
@@ -222,7 +258,7 @@ $( document ).ready(function() {
             }
         }
 
-        Game.prototype.pushState = function(state) {
+        Game.prototype.pushState = function(state, stateName) {
 
             //  If there's an enter function for the new state, call it.
             if(state.enter) {
@@ -230,6 +266,7 @@ $( document ).ready(function() {
             }
             //  Set the current state.
             this.stateStack.push(state);
+            this.stateNameStack.push(stateName);
         };
 
         Game.prototype.popState = function() {
@@ -242,30 +279,13 @@ $( document ).ready(function() {
 
                 //  Set the current state.
                 this.stateStack.pop();
+                this.stateNameStack.pop();
             }
         };
 
         //  The stop function stops the game.
         Game.prototype.stop = function Stop() {
             clearInterval(this.intervalId);
-        };
-
-        //  Inform the game a key is down.
-        Game.prototype.keyDown = function(keyCode) {
-            this.pressedKeys[keyCode] = true;
-            //  Delegate to the current state too.
-            if(this.currentState() && this.currentState().keyDown) {
-                this.currentState().keyDown(this, keyCode);
-            }
-        };
-
-        //  Inform the game a key is up.
-        Game.prototype.keyUp = function(keyCode) {
-            delete this.pressedKeys[keyCode];
-            //  Delegate to the current state too.
-            if(this.currentState() && this.currentState().keyUp) {
-                this.currentState().keyUp(this, keyCode);
-            }
         };
 
         function WelcomeState() {
@@ -282,6 +302,16 @@ $( document ).ready(function() {
             //  Clear the background.
             ctx.clearRect(0, 0, game.width, game.height);
 
+            ctx.fillStyle = "blue";
+            ctx.fillRect(0, H, W, H*2);
+
+            // Draw directional arrows
+            ctx.drawImage(game.up_arrow, game.ux, game.uy);
+            ctx.drawImage(game.down_arrow, game.dx, game.dy);
+            ctx.drawImage(game.right_arrow, game.rx, game.ry);
+            ctx.drawImage(game.left_arrow, game.lx, game.ly);
+            ctx.drawImage(game.fire_button, game.fx, game.fy);
+
             ctx.font="30px Arial";
             ctx.fillStyle = '#ffffff';
             ctx.textBaseline="center"; 
@@ -289,17 +319,7 @@ $( document ).ready(function() {
             ctx.fillText("Space Invaders", game.width / 2, game.height/2 - 40); 
             ctx.font="16px Arial";
 
-            ctx.fillText("Press 'Space' to start.", game.width / 2, game.height/2); 
-        };
-
-        WelcomeState.prototype.keyDown = function(game, keyCode) {
-            if(keyCode == 32) { //space
-                //  Space starts the game.
-                game.level = 1;
-                game.score = 0;
-                game.lives = 3;
-                game.moveToState(new LevelIntroState(game.level));
-            }
+            ctx.fillText("Tap to start.", game.width / 2, game.height/2); 
         };
 
         function GameOverState() {
@@ -315,6 +335,16 @@ $( document ).ready(function() {
             //  Clear the background.
             ctx.clearRect(0, 0, game.width, game.height);
 
+            ctx.fillStyle = "blue";
+            ctx.fillRect(0, H, W, H*2);
+
+            // Draw directional arrows
+            ctx.drawImage(game.up_arrow, game.ux, game.uy);
+            ctx.drawImage(game.down_arrow, game.dx, game.dy);
+            ctx.drawImage(game.right_arrow, game.rx, game.ry);
+            ctx.drawImage(game.left_arrow, game.lx, game.ly);
+            ctx.drawImage(game.fire_button, game.fx, game.fy);
+
             ctx.font="30px Arial";
             ctx.fillStyle = '#ffffff';
             ctx.textBaseline="center"; 
@@ -323,17 +353,7 @@ $( document ).ready(function() {
             ctx.font="16px Arial";
             ctx.fillText("You scored " + game.score + " and got to level " + game.level, game.width / 2, game.height/2);
             ctx.font="16px Arial";
-            ctx.fillText("Press 'Space' to play again.", game.width / 2, game.height/2 + 40);   
-        };
-
-        GameOverState.prototype.keyDown = function(game, keyCode) {
-            if(keyCode == 32) { //space
-                //  Space restarts the game.
-                game.lives = 3;
-                game.score = 0;
-                game.level = 1;
-                game.moveToState(new LevelIntroState(1));
-            }
+            ctx.fillText("Tap to play again.", game.width / 2, game.height/2 + 40);   
         };
 
         //  Create a PlayState with the game config and the level you are on.
@@ -357,7 +377,7 @@ $( document ).ready(function() {
         PlayState.prototype.enter = function(game) {
 
             //  Create the ship.
-            this.ship = new Ship(game.width / 2, game.gameBounds.bottom);
+            this.ship = new Ship(game.width / 2, game.gameBounds.bottom - 8);
 
             //  Setup initial state.
             this.invaderCurrentVelocity =  10;
@@ -391,20 +411,15 @@ $( document ).ready(function() {
         };
 
         PlayState.prototype.update = function(game, dt) {
-            
-            //  If the left or right arrow keys are pressed, move
-            //  the ship. Check this on ticks rather than via a keydown
-            //  event for smooth movement, otherwise the ship would move
-            //  more like a text editor caret.
-            if(game.pressedKeys[37]) {
-                this.ship.x -= this.shipSpeed * dt;
+
+            if (game.direction == "left"){
+                this.ship.vx = -6;
+            } else if (game.direction == "right"){
+                this.ship.vx = 6;
+            } else {
+                this.ship.vx = 0;
             }
-            if(game.pressedKeys[39]) {
-                this.ship.x += this.shipSpeed * dt;
-            }
-            if(game.pressedKeys[32]) {
-                this.fireRocket();
-            }
+            this.ship.x += this.ship.vx;
 
             //  Keep the ship in bounds.
             if(this.ship.x < game.gameBounds.left) {
@@ -420,7 +435,7 @@ $( document ).ready(function() {
                 bomb.y += dt * bomb.velocity;
 
                 //  If the rocket has gone off the screen remove it.
-                if(bomb.y > this.height) {
+                if(bomb.y > H) {
                     this.bombs.splice(i--, 1);
                 }
             }
@@ -507,7 +522,6 @@ $( document ).ready(function() {
                 }
                 if(bang) {
                     this.invaders.splice(i--, 1);
-                    game.sounds.playSound('bang');
                 }
             }
 
@@ -542,7 +556,6 @@ $( document ).ready(function() {
                         bomb.y >= (this.ship.y - this.ship.height/2) && bomb.y <= (this.ship.y + this.ship.height/2)) {
                     this.bombs.splice(i--, 1);
                     game.lives--;
-                    game.sounds.playSound('explosion');
                 }
                         
             }
@@ -556,20 +569,19 @@ $( document ).ready(function() {
                     (invader.y - invader.height/2) < (this.ship.y + this.ship.height/2)) {
                     //  Dead by collision!
                     game.lives = 0;
-                    game.sounds.playSound('explosion');
                 }
             }
 
             //  Check for failure
             if(game.lives <= 0) {
-                game.moveToState(new GameOverState());
+                game.moveToState(new GameOverState(), "GameOverState");
             }
 
             //  Check for victory
             if(this.invaders.length === 0) {
                 game.score += this.level * 50;
                 game.level += 1;
-                game.moveToState(new LevelIntroState(game.level));
+                game.moveToState(new LevelIntroState(game.level), "LevelIntroState");
             }
         };
 
@@ -577,6 +589,16 @@ $( document ).ready(function() {
 
             //  Clear the background.
             ctx.clearRect(0, 0, game.width, game.height);
+
+            ctx.fillStyle = "blue";
+            ctx.fillRect(0, H, W, H*2);
+
+            // Draw directional arrows
+            ctx.drawImage(game.up_arrow, game.ux, game.uy);
+            ctx.drawImage(game.down_arrow, game.dx, game.dy);
+            ctx.drawImage(game.right_arrow, game.rx, game.ry);
+            ctx.drawImage(game.left_arrow, game.lx, game.ly);
+            ctx.drawImage(game.fire_button, game.fx, game.fy);
             
             //  Draw ship.
             ctx.fillStyle = '#999999';
@@ -600,11 +622,11 @@ $( document ).ready(function() {
             ctx.fillStyle = '#ff0000';
             for(var i=0; i<this.rockets.length; i++) {
                 var rocket = this.rockets[i];
-                ctx.fillRect(rocket.x, rocket.y - 2, 1, 4);
+                ctx.fillRect(rocket.x, rocket.y - 2, 2, 8);
             }
 
             //  Draw info.
-            var textYpos = game.gameBounds.bottom + ((game.height - game.gameBounds.bottom) / 2) + 14/2;
+            var textYpos = game.gameBounds.top + ((game.height - game.gameBounds.bottom) / 2) + 14/2;
             ctx.font="14px Arial";
             ctx.fillStyle = '#ffffff';
             var info = "Lives: " + game.lives;
@@ -625,22 +647,6 @@ $( document ).ready(function() {
 
         };
 
-        PlayState.prototype.keyDown = function(game, keyCode) {
-
-            if(keyCode == 32) {
-                //  Fire!
-                this.fireRocket();
-            }
-            if(keyCode == 80) {
-                //  Push the pause state.
-                game.pushState(new PauseState());
-            }
-        };
-
-        PlayState.prototype.keyUp = function(game, keyCode) {
-
-        };
-
         PlayState.prototype.fireRocket = function() {
             //  If we have no last rocket time, or the last rocket time 
             //  is older than the max rocket rate, we can fire.
@@ -649,36 +655,7 @@ $( document ).ready(function() {
                 //  Add a rocket.
                 this.rockets.push(new Rocket(this.ship.x, this.ship.y - 12, this.config.rocketVelocity));
                 this.lastRocketTime = (new Date()).valueOf();
-
-                //  Play the 'shoot' sound.
-                game.sounds.playSound('shoot');
             }
-        };
-        
-
-        function PauseState() {
-
-        }
-
-        PauseState.prototype.keyDown = function(game, keyCode) {
-
-            if(keyCode == 80) {
-                //  Pop the pause state.
-                game.popState();
-            }
-        };
-
-        PauseState.prototype.draw = function(game, dt, ctx) {
-
-            //  Clear the background.
-            ctx.clearRect(0, 0, game.width, game.height);
-
-            ctx.font="14px Arial";
-            ctx.fillStyle = '#ffffff';
-            ctx.textBaseline="middle";
-            ctx.textAlign="center";
-            ctx.fillText("Paused", game.width / 2, game.height/2);
-            return;
         };
 
         //    Level Intro State
@@ -707,7 +684,7 @@ $( document ).ready(function() {
             }
             if(this.countdown <= 0) {
                 //  Move to the next level, popping this state.
-                game.moveToState(new PlayState(game.config, this.level));
+                game.moveToState(new PlayState(game.config, this.level), "PlayState");
             }
 
         };
@@ -716,6 +693,16 @@ $( document ).ready(function() {
 
             //  Clear the background.
             ctx.clearRect(0, 0, game.width, game.height);
+
+            ctx.fillStyle = "blue";
+            ctx.fillRect(0, H, W, H*2);
+
+            // Draw directional arrows
+            ctx.drawImage(game.up_arrow, game.ux, game.uy);
+            ctx.drawImage(game.down_arrow, game.dx, game.dy);
+            ctx.drawImage(game.right_arrow, game.rx, game.ry);
+            ctx.drawImage(game.left_arrow, game.lx, game.ly);
+            ctx.drawImage(game.fire_button, game.fx, game.fy);
 
             ctx.font="36px Arial";
             ctx.fillStyle = '#ffffff';
@@ -737,8 +724,16 @@ $( document ).ready(function() {
             this.y = y;
             this.width = 20;
             this.height = 16;
+            this.vx = 0;
         }
 
+        // Directional Controls
+        function Button(x, y, r, c) {
+            this.x = x;
+            this.y = y;
+            this.r = r;
+            this.c = c;
+        }
 
         //    Rocket
 
@@ -784,47 +779,75 @@ $( document ).ready(function() {
         //    called, with a dt value (dt is delta time, i.e. the number)
         //    of seconds to update or draw).
 
-        function GameState(updateProc, drawProc, keyDown, keyUp, enter, leave) {
+        function GameState(updateProc, drawProc, enter, leave) {
             this.updateProc = updateProc;
             this.drawProc = drawProc;
-            this.keyDown = keyDown;
-            this.keyUp = keyUp;
             this.enter = enter;
             this.leave = leave;
         }
 
         // START ============================================================================================
+        var titlebar_height = $( "div.app-title" ).height();
+
+        //  Setup the canvas.
+        var canvas = document.getElementById("canvas");
+        canvas.width = screen.width;
+        canvas.height = screen.height - titlebar_height;
+
+        var W = canvas.width; // Window's width
+        var H = canvas.height/2; // Window's height
+
         var container = document.getElementById('starfield');
         var starfield = new Starfield();
         starfield.initialise(container);
         starfield.start();
 
-        //  Setup the canvas.
-        var canvas = document.getElementById("canvas");
-        canvas.width = 400;
-        canvas.height = 300;
          
         //  Create the game.
         var game = new Game();
          
         //  Initialise it with the game canvas.
         game.initialise(canvas);
+
+        game.gameCanvas.addEventListener("touchstart", function touchHandler(event) {
+            if (event.targetTouches.length >= 1) { //one finger touche
+                var touch = event.targetTouches[0];
+
+                if (event.type == "touchstart"){
+                    if ((game.currentStateName() == "WelcomeState") || (game.currentStateName() == "GameOverState")) {
+                        game.level = 1;
+                        game.score = 0;
+                        game.lives = 3;
+                        game.moveToState(new LevelIntroState(game.level), "LevelIntroState");
+                        //alert("touch " + touch.pageX + ", " + touch.pageY + " " + this.currentState());
+                    } 
+                    else if (game.currentStateName() == "PlayState") {
+                        if(touch.pageX > game.dx && touch.pageX < (game.dx + game.down_arrow.width) && touch.pageY > (game.dy + titlebar_height) && touch.pageY < (game.dy + titlebar_height + game.down_arrow.height)){
+                            //alert("touch " + touch.pageX + ", " + touch.pageY + " down_arrow " + down_arrow.x + ", " + down_arrow.y + ", " + down_arrow.r + " bar height " + titlebar_height);
+                            game.direction = "down";
+                        }
+                        else if(touch.pageX > game.ux && touch.pageX < (game.ux + game.up_arrow.width) && touch.pageY > (game.uy + titlebar_height) && touch.pageY < (game.uy + titlebar_height + game.up_arrow.height)){
+                            //alert("touch " + touch.pageX + ", " + touch.pageY + " up_arrow " + up_arrow.x + ", " + up_arrow.y + ", " + up_arrow.r + " bar height " + titlebar_height);
+                            game.direction = "up";
+                        }
+                        else if (touch.pageX > game.lx && touch.pageX < (game.lx + game.left_arrow.width) && touch.pageY > (game.ly + titlebar_height) && touch.pageY < (game.ly + titlebar_height + game.left_arrow.height)){
+                            //alert("touch " + touch.pageX + ", " + touch.pageY + " left_arrow " + left_arrow.x + ", " + left_arrow.y + ", " + left_arrow.r + " bar height " + titlebar_height);
+                            game.direction = "left";
+                        }
+                        else if (touch.pageX > game.rx && touch.pageX < (game.rx + game.right_arrow.width) && touch.pageY > (game.ry + titlebar_height) && touch.pageY < (game.ry + titlebar_height + game.right_arrow.height)){
+                            //alert("touch " + touch.pageX + ", " + touch.pageY + " right_arrow " + right_arrow.x + ", " + right_arrow.y + ", " + right_arrow.r + " bar height " + titlebar_height);
+                            game.direction = "right";
+                        }
+                        else if (touch.pageX > game.fx && touch.pageX < (game.fx + game.fire_button.width) && touch.pageY > (game.fy + titlebar_height) && touch.pageY < (game.fy + titlebar_height + game.fire_button.height)){
+                            //alert("touch " + touch.pageX + ", " + touch.pageY + " right_arrow " + right_arrow.x + ", " + right_arrow.y + ", " + right_arrow.r + " bar height " + titlebar_height);
+                            game.currentState().fireRocket();
+                        }
+                    }
+                }
+            }
+        }, false);
          
         //  Start the game.
         game.start();
-         
-        //  Listen for keyboard events.
-        window.addEventListener("keydown", function keydown(e) {
-            var keycode = e.which || window.event.keycode;
-            //  Supress further processing of left/right/space (37/29/32)
-            if(keycode == 37 || keycode == 39 || keycode == 32) {
-                e.preventDefault();
-            }
-            game.keyDown(keycode);
-        });
-        window.addEventListener("keyup", function keydown(e) {
-            var keycode = e.which || window.event.keycode;
-            game.keyUp(keycode);
-        });
     });
 });
